@@ -5,8 +5,11 @@ import { Cron } from '@nestjs/schedule';
 export class TasksService {
   private readonly logger = new Logger(TasksService.name);
 
+  _called = 0;
+
   @Cron('* * * * * *')
   scrapeContestData(): void {
     this.logger.debug('Called every second');
+    this._called += 1;
   }
 }
