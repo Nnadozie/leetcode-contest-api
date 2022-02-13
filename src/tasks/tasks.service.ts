@@ -7,9 +7,8 @@ export class TasksService {
 
   _called = 0;
 
-  @Cron('* * * * * *')
+  @Cron('* 30 4 * * sun')
   scrapeContestData(): void {
-    this.logger.debug('Called every second');
     this._called += 1;
   }
 }

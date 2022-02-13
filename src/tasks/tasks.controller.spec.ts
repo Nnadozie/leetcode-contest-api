@@ -1,33 +1,14 @@
 import { INestApplication } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
-import { Test, TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
 import { AppModule } from '../app.module';
 import { TasksModule } from './tasks.module';
 import { TasksService } from './tasks.service';
-
-const TasksServiceMock = {
-  scrapeContestData: jest.fn().mockImplementation(() => {
-    console.log('called mock scrape');
-  }),
-};
+import * as sinon from 'sinon';
 
 describe('TasksService', () => {
-  let tasksService: TasksService;
-
-  // beforeEach(async () => {
-  //   const moduleRef: TestingModule = await Test.createTestingModule({
-  //     providers: [
-  // {
-  //   provide: TasksService,
-  //   useValue: TasksServiceMock,
-  // },
-  //     ],
-  //   }).compile();
-
-  //   tasksService = moduleRef.get<TasksService>(TasksService);
-  // });
-
   let app: INestApplication;
+  let clock: sinon.SinonFakeTimers;
 
   beforeEach(async () => {
     const module = await Test.createTestingModule({
@@ -41,49 +22,123 @@ describe('TasksService', () => {
     }).compile();
 
     app = module.createNestApplication();
-    //tasksService = module.get<TasksService>(TasksService);
   });
 
   describe('weekly', () => {
-    it(`should schedule "cron"`, async () => {
-      const service = app.get(TasksService);
-
-      //expect(tasksService.scrapeContestData).not.toHaveBeenCalled();
-
-      await app.init();
-      await new Promise((r) => setTimeout(r, 2000));
-
-      expect(service._called).toBe(2);
-    });
     test('Feb 13 at 4:30AM, scrapeContestData TO BE called', async () => {
-      //const service = app.get(TasksService);
-      jest
-        .spyOn(global.Date, 'now')
-        .mockImplementationOnce(() => new Date('2022-02-13T04:30Z').valueOf());
-      await new Promise((r) => setTimeout(r, 2000));
-
-      //expect(tasksService.scrapeContestData).toHaveBeenCalled();
+      const service = app.get(TasksService);
+      clock = sinon.useFakeTimers({
+        now: new Date('2022-02-13T04:30Z').valueOf(),
+      });
+      await app.init();
+      clock.tick(3000);
+      expect(new Date().getDay()).toBe(0);
+      expect(service._called).toBe(3);
     });
 
-    test.todo(
-      'a day after Feb 13 at 4:30AM, scrapeContestData to NOT BE called ',
-    );
+    test('a day after Feb 13 at 4:30AM, scrapeContestData to NOT BE called', async () => {
+      const service = app.get(TasksService);
+      expect(service._called).toBe(0);
+      clock = sinon.useFakeTimers({
+        now: new Date('2022-02-14T04:30Z').valueOf(),
+      });
+      await app.init();
+      clock.tick(2000);
+      expect(new Date().getDay()).toBe(1);
 
-    test.todo('a week after Feb 13 at 4:30AM, scrapeContestData TO BE called');
+      expect(service._called).toBe(0);
+    });
 
-    test.todo(
-      '2 weeks after Feb 13 at 4:30AM, scrapeContestData TO BE called ',
-    );
+    test('a week after Feb 13 at 4:30AM, scrapeContestData TO BE called', async () => {
+      const service = app.get(TasksService);
+      expect(service._called).toBe(0);
+      clock = sinon.useFakeTimers({
+        now: new Date('2022-02-20T04:30Z').valueOf(),
+      });
+      await app.init();
+      clock.tick(4000);
+      expect(new Date().getDay()).toBe(0);
 
-    test.todo('one minute before ,should to NOT BE  be called');
+      expect(service._called).toBe(4);
+    });
 
-    test.todo('one minute after, TO BE called');
+    test('2 weeks after Feb 13 at 4:30AM, scrapeContestData TO BE called ', async () => {
+      const service = app.get(TasksService);
+      expect(service._called).toBe(0);
+      clock = sinon.useFakeTimers({
+        now: new Date('2022-02-27T04:30Z').valueOf(),
+      });
+      await app.init();
+      clock.tick(4000);
+      expect(new Date().getDay()).toBe(0);
 
-    test.todo('one hour before ,should to NOT BE  be called');
+      expect(service._called).toBe(4);
+    });
 
-    test.todo('one hour after, TO BE called');
+    test('one minute before ,should to NOT BE called', async () => {
+      const service = app.get(TasksService);
+      expect(service._called).toBe(0);
+      clock = sinon.useFakeTimers({
+        now: new Date('2022-02-20T04:29Z').valueOf(),
+      });
+      await app.init();
+      clock.tick(4000);
+      expect(new Date().getDay()).toBe(0);
 
-    test.todo('one year later, TO BE called');
+      expect(service._called).toBe(0);
+    });
+
+    test('one minute after, TO HAVE BEEN called', async () => {
+      const service = app.get(TasksService);
+      expect(service._called).toBe(0);
+      clock = sinon.useFakeTimers({
+        now: new Date('2022-02-20T04:30Z').valueOf(),
+      });
+      await app.init();
+      clock.tick(60000);
+      expect(new Date().getDay()).toBe(0);
+
+      expect(service._called).toBeGreaterThan(0);
+    });
+
+    test('one hour before ,should to NOT BE  be called', async () => {
+      const service = app.get(TasksService);
+      expect(service._called).toBe(0);
+      clock = sinon.useFakeTimers({
+        now: new Date('2022-02-20T03:30Z').valueOf(),
+      });
+      await app.init();
+      clock.tick(4000);
+      expect(new Date().getDay()).toBe(0);
+
+      expect(service._called).toBe(0);
+    });
+
+    test('one hour after, TO HAVE BEEN called', async () => {
+      const service = app.get(TasksService);
+      expect(service._called).toBe(0);
+      clock = sinon.useFakeTimers({
+        now: new Date('2022-02-20T04:30Z').valueOf(),
+      });
+      await app.init();
+      clock.tick('01:00:00');
+      expect(new Date().getDay()).toBe(0);
+
+      expect(service._called).toBeGreaterThan(0);
+    });
+
+    test('one year later, TO BE called', async () => {
+      const service = app.get(TasksService);
+      expect(service._called).toBe(0);
+      clock = sinon.useFakeTimers({
+        now: new Date('2023-02-19T04:30Z').valueOf(),
+      });
+      await app.init();
+      clock.tick(4000);
+      expect(new Date().getDay()).toBe(0);
+
+      expect(service._called).toBe(4);
+    });
   });
 
   describe('biweekly', () => {
