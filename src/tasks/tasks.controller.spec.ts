@@ -75,7 +75,7 @@ describe('TasksService', () => {
       expect(service._called).toBe(4);
     });
 
-    test('one minute before ,should to NOT BE called', async () => {
+    test('one minute before ,should NOT BE called', async () => {
       const service = app.get(TasksService);
       expect(service._called).toBe(0);
       clock = sinon.useFakeTimers({
@@ -92,7 +92,7 @@ describe('TasksService', () => {
       const service = app.get(TasksService);
       expect(service._called).toBe(0);
       clock = sinon.useFakeTimers({
-        now: new Date('2022-02-20T04:30Z').valueOf(),
+        now: new Date('2022-02-20T04:31Z').valueOf(),
       });
       await app.init();
       clock.tick(60000);
@@ -118,10 +118,9 @@ describe('TasksService', () => {
       const service = app.get(TasksService);
       expect(service._called).toBe(0);
       clock = sinon.useFakeTimers({
-        now: new Date('2022-02-20T04:30Z').valueOf(),
+        now: new Date('2022-02-20T05:30Z').valueOf(),
       });
       await app.init();
-      clock.tick('01:00:00');
       expect(new Date().getDay()).toBe(0);
 
       expect(service._called).toBeGreaterThan(0);
@@ -142,24 +141,74 @@ describe('TasksService', () => {
   });
 
   describe('biweekly', () => {
-    test.todo('Feb 19 at 4:30 PM, scrapeContestData TO BE called');
+    test('Feb 19 at 4:30 PM, scrapeContestData TO BE called', async () => {
+      const service = app.get(TasksService);
+      clock = sinon.useFakeTimers({
+        now: new Date('2022-02-19T16:30Z').valueOf(),
+      });
+      await app.init();
+      clock.tick(3000);
+      expect(new Date().getDay()).toBe(6);
+      expect(service._called).toBe(3);
+    });
 
-    test.todo(
-      'a day after Feb 19 at 4:30PM, scrapeContestData to NOT BE  called ',
-    );
+    test('a day after Feb 19 at 4:30PM, scrapeContestData to NOT BE  called ', async () => {
+      const service = app.get(TasksService);
+      clock = sinon.useFakeTimers({
+        now: new Date('2022-02-20T16:30Z').valueOf(),
+      });
+      await app.init();
+      clock.tick(3000);
+      expect(new Date().getDay()).toBe(0);
+      expect(service._called).toBe(0);
+    });
 
-    test.todo('a week after Feb 19 at 4:30PM, scrapeContestData TO BE called');
+    test('a week after Feb 19 at 4:30PM, scrapeContestData to NOT BE called', async () => {
+      const service = app.get(TasksService);
+      clock = sinon.useFakeTimers({
+        now: new Date('2022-02-26T16:30Z').valueOf(),
+      });
+      await app.init();
+      clock.tick(3000);
+      expect(new Date().getDay()).toBe(6);
+      expect(service._called).toBe(0);
+    });
 
-    test.todo(
-      '2 weeks after Feb 19 at 4:30PM, scrapeContestData TO BE called ',
-    );
+    test('2 weeks after Feb 19, March 5 at 4:30PM, scrapeContestData TO BE called ', async () => {
+      const service = app.get(TasksService);
+      clock = sinon.useFakeTimers({
+        now: new Date('2022-03-05T16:30Z').valueOf(),
+      });
+      await app.init();
+      clock.tick(3000);
+      expect(new Date().getDay()).toBe(6);
+      expect(service._called).toBe(3);
+    });
 
-    test.todo('one minute before ,should to NOT BE  be called');
+    test('one minute before, should NOT BE called', async () => {
+      const service = app.get(TasksService);
+      expect(service._called).toBe(0);
+      clock = sinon.useFakeTimers({
+        now: new Date('2022-02-19T16:29Z').valueOf(),
+      });
+      await app.init();
+      clock.tick(4000);
+      expect(new Date().getDay()).toBe(6);
 
-    test.todo('one minute after, TO BE called');
+      expect(service._called).toBe(0);
+    });
 
-    test.todo('one hour before ,should to NOT BE  be called');
+    test('one minute after, TO HAVE BEEN called', async () => {
+      const service = app.get(TasksService);
+      expect(service._called).toBe(0);
+      clock = sinon.useFakeTimers({
+        now: new Date('2022-02-19T16:31Z').valueOf(),
+      });
+      await app.init();
+      clock.tick(60000);
+      expect(new Date().getDay()).toBe(6);
 
-    test.todo('one hour after, TO BE called');
+      expect(service._called).toBeGreaterThan(0);
+    });
   });
 });

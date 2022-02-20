@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class TasksService {
@@ -8,6 +8,15 @@ export class TasksService {
   _called = 0;
 
   @Cron('* 30 4 * * sun')
+  handleWeekly(): void {
+    this.scrapeContestData();
+  }
+
+  @Cron('* 30 16 * * sat')
+  handleBiWeekly(): void {
+    this.scrapeContestData();
+  }
+
   scrapeContestData(): void {
     this._called += 1;
   }
