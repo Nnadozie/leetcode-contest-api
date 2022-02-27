@@ -1,6 +1,29 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DataService } from './data.service';
 import { Cron } from '@nestjs/schedule';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
+
+export interface Contestant {
+  rank: number;
+  finish_time: number;
+  score: number;
+}
+
+export interface Contest {
+  url: URL;
+  contestNumber: number;
+  lastPage: number;
+  /**
+   * Number of contestants.
+   * Gotten as lastPage x 25.
+   */
+  totalContestants: number;
+}
+
+export interface Response {
+  total_rank: Contestant[];
+}
 
 @Injectable()
 export class TasksService {
@@ -8,16 +31,50 @@ export class TasksService {
 
   _called = 0;
 
-  constructor(private dataService: DataService) {
+  constructor(
+    private dataService: DataService,
+    private httpService: HttpService,
+  ) {
     this.onStartUp(
       this.dataService.leetcodeDb.keys,
       this.dataService.mockDb.keys,
     );
   }
 
+  /**
+   * Finds the last page with a non-zero finish time
+   **/
+  async findLastPage(page = 0, step = 100): Promise<number> {
+    return;
+  }
+
+  /**
+   * Gets all competitors on a page with the given url
+   **/
+  async getCompetitors(url: string): Promise<Contestant[]> {
+    return;
+  }
+
+  /**
+   * Scrape all useful entries from a Leetcode contest
+   * and return an array of entries
+   **/
+  async scrapeContestData(contest: Contest): Promise<Contestant[]> {
+    const res = this.httpService.get<Response>(contest.url.toString());
+    return (await firstValueFrom(res)).data.total_rank;
+  }
+
+  /**
+   * Store entries for a contest in our DB.
+   * Tell us if the operation was successful or not.
+   **/
+  storeContestData(contest: Contest, data: Contestant[]): boolean {
+    return;
+  }
+
   @Cron('* 30 4 * * sun')
   handleWeekly(): void {
-    this.scrapeContestData();
+    this._called += 1;
   }
 
   @Cron('* 30 16 * * sat')
@@ -29,11 +86,7 @@ export class TasksService {
         this.dataService.mockDb.keys,
       )
     )
-      this.scrapeContestData();
-  }
-
-  scrapeContestData(): void {
-    this._called += 1;
+      this._called += 1;
   }
 
   dataExistsInDb(key: Date, mockDb: string[]): boolean {
@@ -52,8 +105,7 @@ export class TasksService {
 
     leetcodeDb.forEach((key) => {
       if (!mockDbKeySet.has(key)) {
-        this.scrapeContestData();
-        console.log(key);
+        this._called += 1;
       }
     });
   }
