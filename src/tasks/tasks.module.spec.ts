@@ -271,8 +271,6 @@ describe('TasksService', () => {
     };
 
     let server: SetupServerApi;
-    beforeAll(() => {});
-
     beforeEach(async () => {
       module = await Test.createTestingModule({
         imports: [
@@ -293,25 +291,48 @@ describe('TasksService', () => {
     afterAll(() => {
       server.close();
     });
-    interface TestContest extends Contest {
-      mockResponse: Response;
+    interface MockContest extends Contest {
+      mockResponse: { [key: number]: Response };
     }
 
-    const contests: TestContest[] = [
+    const contests: MockContest[] = [
       {
         url: new URL(
-          //'https://leetcode.com/contest/api/ranking/weekly-contest-278/?pagination=55&region=global',
-          'https://contest.com/',
+          //'?pagination=55&region=global',
+          'https://leetcode.com/contest/api/ranking/mock-contest-0/',
         ),
         totalContestants: 100,
         contestNumber: 0,
         lastPage: 4,
         mockResponse: {
-          total_rank: new Array<Contestant>(100).fill({
-            rank: 1,
-            finish_time: 1,
-            score: 1,
-          }),
+          1: {
+            total_rank: new Array<Contestant>(25).fill({
+              rank: 1,
+              finish_time: 1,
+              score: 1,
+            }),
+          },
+          2: {
+            total_rank: new Array<Contestant>(25).fill({
+              rank: 1,
+              finish_time: 1,
+              score: 1,
+            }),
+          },
+          3: {
+            total_rank: new Array<Contestant>(25).fill({
+              rank: 1,
+              finish_time: 1,
+              score: 1,
+            }),
+          },
+          4: {
+            total_rank: new Array<Contestant>(25).fill({
+              rank: 1,
+              finish_time: 1,
+              score: 1,
+            }),
+          },
         },
       },
       {
@@ -319,7 +340,7 @@ describe('TasksService', () => {
         totalContestants: 0,
         contestNumber: 0,
         lastPage: 1,
-        mockResponse: { total_rank: [] },
+        mockResponse: { 1: { total_rank: [] } },
       },
     ];
 
@@ -331,26 +352,29 @@ describe('TasksService', () => {
         server = setupServer(
           rest.get(contest.url.toString(), (req, res, ctx) => {
             return res(
-              ctx.json({
-                total_rank: new Array<Contestant>(
-                  contest.totalContestants,
-                ).fill({
-                  rank: 1,
-                  finish_time: 1,
-                  score: 1,
-                }),
-              }),
+              ctx.json(
+                contest.mockResponse[
+                  contest.url.searchParams.get('pagination')
+                    ? contest.url.searchParams.get('pagination')
+                    : 1
+                ],
+              ), //How to tell typescript pagination exists
             );
           }),
         );
+        server.events.on('response:mocked', async (res, reqId) => {
+          //console.log('sent a mocked response', reqId, res);
+        });
         server.listen();
 
         const result = await service.scrapeContestData(contest);
 
+        console.log(result);
+
         expect(result.length).toBe(contest.totalContestants);
       },
     );
-    test.skip('contest of 3 entries, returned entries match contest entries', async () => {
+    test('contest of 3 entries, returned entries match contest entries', async () => {
       const contest = {
         url: new URL('https://contest.com/'),
         totalContestants: 3,
@@ -366,13 +390,20 @@ describe('TasksService', () => {
         ],
       };
 
+      server = setupServer(
+        rest.get(contest.url.toString(), (req, res, ctx) => {
+          return res(ctx.json(mockHttpRes));
+        }),
+      );
+      server.listen();
+
       const service = module.get(TasksService);
 
       const result = await service.scrapeContestData(contest);
       expect(result).toEqual(mockHttpRes.total_rank);
     });
 
-    test.skip('contest of 5 entries, returned entries match contest entries', async () => {
+    test('contest of 50 entries, returned entries match contest entries', async () => {
       const contest = {
         url: new URL('https://contest.com'),
         totalContestants: 3,
@@ -389,11 +420,15 @@ describe('TasksService', () => {
           { rank: 9, finish_time: 1245254, score: 12 },
         ],
       };
-      const service = module.get(TasksService);
-      //testing implementation detail
 
-      //jest.spyOn(rxjs, 'firstValueFrom').mockResolvedValue(mockHttpRes);
-      //mock network request instead using msw
+      server = setupServer(
+        rest.get(contest.url.toString(), (req, res, ctx) => {
+          return res(ctx.json(mockHttpRes));
+        }),
+      );
+      server.listen();
+
+      const service = module.get(TasksService);
       const result = await service.scrapeContestData(contest);
       expect(result).toEqual(mockHttpRes.total_rank);
     });

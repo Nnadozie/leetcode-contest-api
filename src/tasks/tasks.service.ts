@@ -60,11 +60,24 @@ export class TasksService {
    * and return an array of entries
    **/
   async scrapeContestData(contest: Contest): Promise<Contestant[]> {
-    return (
-      await firstValueFrom(
-        this.httpService.get<Response>(contest.url.toString()),
-      )
-    ).data.total_rank;
+    /**
+     * This recursive approach assumes 500bytes per stack call
+     * and a lastPage typically <= 1000
+     * for a rough estimation of 500kb of stack space needed
+     *
+     * The default node stack size is 984kb so for a typical
+     * contest this should be fine. If not, needs refactoring.
+     */
+    if (contest.lastPage === 0) return [];
+    contest.url.searchParams.set('pagination', contest.lastPage.toString());
+
+    const res = await firstValueFrom(
+      this.httpService.get<Response>(contest.url.toString()),
+    );
+
+    contest.lastPage--;
+
+    return res.data.total_rank.concat(await this.scrapeContestData(contest));
   }
 
   /**
