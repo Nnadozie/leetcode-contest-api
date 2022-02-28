@@ -60,8 +60,11 @@ export class TasksService {
    * and return an array of entries
    **/
   async scrapeContestData(contest: Contest): Promise<Contestant[]> {
-    const res = this.httpService.get<Response>(contest.url.toString());
-    return (await firstValueFrom(res)).data.total_rank;
+    return (
+      await firstValueFrom(
+        this.httpService.get<Response>(contest.url.toString()),
+      )
+    ).data.total_rank;
   }
 
   /**

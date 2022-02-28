@@ -5,7 +5,8 @@ import * as sinon from 'sinon';
 import { DataService } from './data.service';
 import { TasksModule } from './tasks.module';
 import { INestApplication } from '@nestjs/common';
-import * as rxjs from 'rxjs';
+import { rest } from 'msw';
+import { setupServer, SetupServerApi } from 'msw/node';
 
 describe('TasksService', () => {
   let app: INestApplication;
@@ -58,35 +59,35 @@ describe('TasksService', () => {
   describe('handleWeekly', () => {
     const weeklyTestCases = [
       {
-        name: 'Feb 13 at 4:30AM, scrapeContestData TO BE called',
+        name: 'Feb 13 at 4:30AM, TO BE called',
         mockDate: '2022-02-13T04:30Z',
         clockTick: 3000,
         dayExpected: 0,
         callsExpected: 3,
       },
       {
-        name: 'a day after Feb 13 at 4:30AM, scrapeContestData to NOT BE called',
+        name: 'a day after Feb 13 at 4:30AM, to NOT BE called',
         mockDate: '2022-02-14T04:30Z',
         clockTick: 2000,
         dayExpected: 1,
         callsExpected: 0,
       },
       {
-        name: 'a week after Feb 13 at 4:30AM, scrapeContestData TO BE called',
+        name: 'a week after Feb 13 at 4:30AM, TO BE called',
         mockDate: '2022-02-20T04:30Z',
         clockTick: 4000,
         dayExpected: 0,
         callsExpected: 4,
       },
       {
-        name: '2 weeks after Feb 13 at 4:30AM, scrapeContestData TO BE called',
+        name: '2 weeks after Feb 13 at 4:30AM, TO BE called',
         mockDate: '2022-02-27T04:30Z',
         clockTick: 4000,
         dayExpected: 0,
         callsExpected: 4,
       },
       {
-        name: 'one minute before ,should NOT BE called',
+        name: 'one minute before, should NOT BE called',
         mockDate: '2022-02-20T04:29Z',
         clockTick: 4000,
         dayExpected: 0,
@@ -110,7 +111,7 @@ describe('TasksService', () => {
         },
       },
       {
-        name: 'one hour before ,should NOT BE  be called',
+        name: 'one hour before, should NOT BE  be called',
         mockDate: '2022-02-20T03:30Z',
         clockTick: 4000,
         dayExpected: 0,
@@ -170,21 +171,21 @@ describe('TasksService', () => {
   describe('handleBiWeekly', () => {
     const biWeeklyTestCases = [
       {
-        name: 'Feb 19 at 4:30 PM, scrapeContestData TO BE called',
+        name: 'Feb 19 at 4:30 PM, TO BE called',
         mockDate: '2022-02-19T16:30Z',
         clockTick: 3000,
         dayExpected: 6,
         callsExpected: 3,
       },
       {
-        name: 'a day after Feb 19 at 4:30PM, scrapeContestData to NOT BE  called',
+        name: 'a day after Feb 19 at 4:30PM, to NOT BE  called',
         mockDate: '2022-02-20T16:30Z',
         clockTick: 3000,
         dayExpected: 0,
         callsExpected: 0,
       },
       {
-        name: 'regular run: a week after Feb 19 at 4:30PM, scrapeContestData to NOT BE called',
+        name: 'regular run: a week after Feb 19 at 4:30PM, to NOT BE called',
         mockDate: '2022-02-26T16:30Z',
         clockTick: 3000,
         dayExpected: 6,
@@ -200,7 +201,7 @@ describe('TasksService', () => {
         },
       },
       {
-        name: '2 weeks after Feb 19, March 5 at 4:30PM, scrapeContestData TO BE called',
+        name: '2 weeks after Feb 19, March 5 at 4:30PM, TO BE called',
         mockDate: '2022-03-05T16:30Z',
         clockTick: 3000,
         dayExpected: 6,
@@ -269,6 +270,9 @@ describe('TasksService', () => {
       },
     };
 
+    let server: SetupServerApi;
+    beforeAll(() => {});
+
     beforeEach(async () => {
       module = await Test.createTestingModule({
         imports: [
@@ -282,35 +286,40 @@ describe('TasksService', () => {
         .compile();
     });
 
-    interface MockResponse {
-      data: Response;
-    }
+    afterEach(() => {
+      server.resetHandlers();
+    });
+
+    afterAll(() => {
+      server.close();
+    });
     interface TestContest extends Contest {
-      mockResponse: MockResponse;
+      mockResponse: Response;
     }
 
     const contests: TestContest[] = [
       {
-        url: new URL('https://contest.com'),
+        url: new URL(
+          //'https://leetcode.com/contest/api/ranking/weekly-contest-278/?pagination=55&region=global',
+          'https://contest.com/',
+        ),
         totalContestants: 100,
         contestNumber: 0,
         lastPage: 4,
         mockResponse: {
-          data: {
-            total_rank: new Array<Contestant>(100).fill({
-              rank: 1,
-              finish_time: 1,
-              score: 1,
-            }),
-          },
+          total_rank: new Array<Contestant>(100).fill({
+            rank: 1,
+            finish_time: 1,
+            score: 1,
+          }),
         },
       },
       {
-        url: new URL('https://contest.com'),
+        url: new URL('https://contest.com/'),
         totalContestants: 0,
         contestNumber: 0,
         lastPage: 1,
-        mockResponse: { data: { total_rank: [] } },
+        mockResponse: { total_rank: [] },
       },
     ];
 
@@ -319,45 +328,51 @@ describe('TasksService', () => {
       async (contest) => {
         const service = module.get(TasksService);
 
-        //testing implementation detail
-        jest
-          .spyOn(rxjs, 'firstValueFrom')
-          .mockResolvedValue(contest.mockResponse);
-
-        //mock network request instead using msw
+        server = setupServer(
+          rest.get(contest.url.toString(), (req, res, ctx) => {
+            return res(
+              ctx.json({
+                total_rank: new Array<Contestant>(
+                  contest.totalContestants,
+                ).fill({
+                  rank: 1,
+                  finish_time: 1,
+                  score: 1,
+                }),
+              }),
+            );
+          }),
+        );
+        server.listen();
 
         const result = await service.scrapeContestData(contest);
+
         expect(result.length).toBe(contest.totalContestants);
       },
     );
-    test('contest of 3 entries, returned entries match contest entries', async () => {
+    test.skip('contest of 3 entries, returned entries match contest entries', async () => {
       const contest = {
-        url: new URL('https://contest.com'),
+        url: new URL('https://contest.com/'),
         totalContestants: 3,
         contestNumber: 0,
         lastPage: 4,
       };
 
-      const mockHttpRes: MockResponse = {
-        data: {
-          total_rank: [
-            { rank: 1, finish_time: 22435234, score: 13 },
-            { rank: 2, finish_time: 5245245, score: 10 },
-            { rank: 3, finish_time: 1234254, score: 7 },
-          ],
-        },
+      const mockHttpRes: Response = {
+        total_rank: [
+          { rank: 1, finish_time: 22435234, score: 13 },
+          { rank: 2, finish_time: 5245245, score: 10 },
+          { rank: 3, finish_time: 1234254, score: 7 },
+        ],
       };
 
       const service = module.get(TasksService);
-      //testing implementation detail
 
-      jest.spyOn(rxjs, 'firstValueFrom').mockResolvedValue(mockHttpRes);
-      //mock network request instead using msw
       const result = await service.scrapeContestData(contest);
-      expect(result).toEqual(mockHttpRes.data.total_rank);
+      expect(result).toEqual(mockHttpRes.total_rank);
     });
 
-    test('contest of 5 entries, returned entries match contest entries', async () => {
+    test.skip('contest of 5 entries, returned entries match contest entries', async () => {
       const contest = {
         url: new URL('https://contest.com'),
         totalContestants: 3,
@@ -365,24 +380,22 @@ describe('TasksService', () => {
         lastPage: 4,
       };
 
-      const mockHttpRes: MockResponse = {
-        data: {
-          total_rank: [
-            { rank: 5, finish_time: 2452452, score: 13 },
-            { rank: 6, finish_time: 1254245, score: 15 },
-            { rank: 7, finish_time: 1245254, score: 12 },
-            { rank: 8, finish_time: 1245245, score: 15 },
-            { rank: 9, finish_time: 1245254, score: 12 },
-          ],
-        },
+      const mockHttpRes: Response = {
+        total_rank: [
+          { rank: 5, finish_time: 2452452, score: 13 },
+          { rank: 6, finish_time: 1254245, score: 15 },
+          { rank: 7, finish_time: 1245254, score: 12 },
+          { rank: 8, finish_time: 1245245, score: 15 },
+          { rank: 9, finish_time: 1245254, score: 12 },
+        ],
       };
       const service = module.get(TasksService);
       //testing implementation detail
 
-      jest.spyOn(rxjs, 'firstValueFrom').mockResolvedValue(mockHttpRes);
+      //jest.spyOn(rxjs, 'firstValueFrom').mockResolvedValue(mockHttpRes);
       //mock network request instead using msw
       const result = await service.scrapeContestData(contest);
-      expect(result).toEqual(mockHttpRes.data.total_rank);
+      expect(result).toEqual(mockHttpRes.total_rank);
     });
     test.todo('contest of n entries, returned entries match given entries');
   });
