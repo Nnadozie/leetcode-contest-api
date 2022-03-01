@@ -3,10 +3,10 @@ import { Injectable } from '@nestjs/common';
 @Injectable()
 export class DataService {
   mockDb = {
-    keys: undefined,
+    keys: [],
   };
   leetcodeDb = {
-    keys: undefined,
-    lastBiWeeklyKey: undefined,
+    keys: [],
+    lastBiWeeklyKey: new Date(),
   };
 }
