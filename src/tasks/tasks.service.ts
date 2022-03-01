@@ -1,6 +1,23 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DataService } from './data.service';
 import { Cron } from '@nestjs/schedule';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
+
+export interface Contestant {
+  rank: number;
+  finish_time: number;
+  score: number;
+}
+
+export interface Contest {
+  url: URL;
+  lastPage: number;
+}
+
+export interface Response {
+  total_rank: Contestant[];
+}
 
 @Injectable()
 export class TasksService {
@@ -8,16 +25,68 @@ export class TasksService {
 
   _called = 0;
 
-  constructor(private dataService: DataService) {
+  constructor(
+    private dataService: DataService,
+    private httpService: HttpService,
+  ) {
     this.onStartUp(
       this.dataService.leetcodeDb.keys,
       this.dataService.mockDb.keys,
     );
   }
 
+  /**
+   * Finds the last page with a non-zero finish time
+   **/
+  async findLastPage(page = 0, step = 100): Promise<number> {
+    return;
+  }
+
+  /**
+   * Gets all competitors on a page with the given url
+   **/
+  async getCompetitors(url: string): Promise<Contestant[]> {
+    return;
+  }
+
+  /**
+   * Scrapes all entries from a Leetcode contest url,
+   * stopping at the last page provided.
+   **/
+  async scrapeContestData(contest: Contest): Promise<Contestant[]> {
+    /**
+     * This recursive approach assumes 500bytes per stack call
+     * and a lastPage typically <= 1000
+     * for a rough estimation of 500kb of stack space needed
+     *
+     * The default node stack size is 984kb so for a typical
+     * contest this should be fine. If not, needs refactoring.
+     *
+     * Or increase stack space...
+     */
+    if (contest.lastPage === 0) return [];
+    contest.url.searchParams.set('pagination', contest.lastPage.toString());
+
+    const res = await firstValueFrom(
+      this.httpService.get<Response>(contest.url.toString()),
+    );
+
+    contest.lastPage--;
+
+    return [...(await this.scrapeContestData(contest)), ...res.data.total_rank];
+  }
+
+  /**
+   * Store entries for a contest in our DB.
+   * Tell us if the operation was successful or not.
+   **/
+  storeContestData(contest: Contest, data: Contestant[]): boolean {
+    return;
+  }
+
   @Cron('* 30 4 * * sun')
   handleWeekly(): void {
-    this.scrapeContestData();
+    this._called += 1;
   }
 
   @Cron('* 30 16 * * sat')
@@ -29,11 +98,7 @@ export class TasksService {
         this.dataService.mockDb.keys,
       )
     )
-      this.scrapeContestData();
-  }
-
-  scrapeContestData(): void {
-    this._called += 1;
+      this._called += 1;
   }
 
   dataExistsInDb(key: Date, mockDb: string[]): boolean {
@@ -52,8 +117,7 @@ export class TasksService {
 
     leetcodeDb.forEach((key) => {
       if (!mockDbKeySet.has(key)) {
-        this.scrapeContestData();
-        console.log(key);
+        this._called += 1;
       }
     });
   }
