@@ -292,7 +292,26 @@ describe('TasksService', () => {
       server.close();
     });
     interface MockContest extends Contest {
-      mockResponse: { [key: number]: Response };
+      mockResponse?: { [key: number]: Response };
+    }
+
+    function mockResGenerator(len: number): { [key: number]: Response } {
+      return new Array(len)
+        .fill(0)
+        .map((val, index) => index + 1)
+        .reduce(
+          (page, curr) => (
+            (page[curr] = {
+              total_rank: new Array<Contestant>(25).fill({
+                rank: curr,
+                finish_time: curr,
+                score: curr,
+              }),
+            }),
+            page
+          ),
+          {},
+        );
     }
 
     const contests: MockContest[] = [
@@ -304,36 +323,7 @@ describe('TasksService', () => {
         totalContestants: 100,
         contestNumber: 0,
         lastPage: 4,
-        mockResponse: {
-          1: {
-            total_rank: new Array<Contestant>(25).fill({
-              rank: 1,
-              finish_time: 1,
-              score: 1,
-            }),
-          },
-          2: {
-            total_rank: new Array<Contestant>(25).fill({
-              rank: 1,
-              finish_time: 1,
-              score: 1,
-            }),
-          },
-          3: {
-            total_rank: new Array<Contestant>(25).fill({
-              rank: 1,
-              finish_time: 1,
-              score: 1,
-            }),
-          },
-          4: {
-            total_rank: new Array<Contestant>(25).fill({
-              rank: 1,
-              finish_time: 1,
-              score: 1,
-            }),
-          },
-        },
+        mockResponse: mockResGenerator(4),
       },
       {
         url: new URL('https://contest.com/'),
@@ -342,6 +332,29 @@ describe('TasksService', () => {
         lastPage: 1,
         mockResponse: { 1: { total_rank: [] } },
       },
+      {
+        url: new URL('https://contest.com/'),
+        totalContestants: 25000,
+        contestNumber: 0,
+        lastPage: 1000,
+        get mockResponse() {
+          return mockResGenerator(this.lastPage);
+        },
+      },
+      // {
+      /**
+       * Testing really large contest times out.
+       * Was expected to stack overflow.
+       * Might be fun to come back to, to optimize.
+       */
+      //   url: new URL('https://contest.com/'),
+      //   totalContestants: 50000,
+      //   contestNumber: 0,
+      //   lastPage: 2000,
+      //   get mockResponse() {
+      //     return mockResGenerator(2000);
+      //   },
+      // },
     ];
 
     test.each(contests)(
@@ -358,7 +371,7 @@ describe('TasksService', () => {
                     ? contest.url.searchParams.get('pagination')
                     : 1
                 ],
-              ), //How to tell typescript pagination exists
+              ), //How to tell typescript pagination exists?
             );
           }),
         );
@@ -368,70 +381,79 @@ describe('TasksService', () => {
         server.listen();
 
         const result = await service.scrapeContestData(contest);
-
-        console.log(result);
-
         expect(result.length).toBe(contest.totalContestants);
       },
     );
     test('contest of 3 entries, returned entries match contest entries', async () => {
-      const contest = {
-        url: new URL('https://contest.com/'),
+      const contest: MockContest = {
+        url: new URL(
+          //'?pagination=55&region=global',
+          'https://leetcode.com/contest/api/ranking/mock-contest-0/',
+        ),
         totalContestants: 3,
         contestNumber: 0,
-        lastPage: 4,
+        lastPage: 1,
       };
-
-      const mockHttpRes: Response = {
-        total_rank: [
-          { rank: 1, finish_time: 22435234, score: 13 },
-          { rank: 2, finish_time: 5245245, score: 10 },
-          { rank: 3, finish_time: 1234254, score: 7 },
-        ],
-      };
-
-      server = setupServer(
-        rest.get(contest.url.toString(), (req, res, ctx) => {
-          return res(ctx.json(mockHttpRes));
-        }),
-      );
+      const mockResponse: Response = {
+          total_rank: [
+            { rank: 5, finish_time: 2452452, score: 13 },
+            { rank: 6, finish_time: 1254245, score: 15 },
+            { rank: 7, finish_time: 1245254, score: 12 },
+          ],
+        },
+        server = setupServer(
+          rest.get(contest.url.toString(), (req, res, ctx) => {
+            return res(ctx.json(mockResponse));
+          }),
+        );
       server.listen();
+      server.events.on('response:mocked', async (res, reqId) => {
+        //console.log('sent a mocked response', reqId, res);
+      });
 
       const service = module.get(TasksService);
 
       const result = await service.scrapeContestData(contest);
-      expect(result).toEqual(mockHttpRes.total_rank);
+      expect(result).toEqual(mockResponse.total_rank);
     });
 
     test('contest of 50 entries, returned entries match contest entries', async () => {
-      const contest = {
+      const contest: MockContest = {
         url: new URL('https://contest.com'),
-        totalContestants: 3,
+        totalContestants: 50,
         contestNumber: 0,
-        lastPage: 4,
+        lastPage: 2,
+        get mockResponse() {
+          return mockResGenerator(this.lastPage);
+        },
       };
 
-      const mockHttpRes: Response = {
-        total_rank: [
-          { rank: 5, finish_time: 2452452, score: 13 },
-          { rank: 6, finish_time: 1254245, score: 15 },
-          { rank: 7, finish_time: 1245254, score: 12 },
-          { rank: 8, finish_time: 1245245, score: 15 },
-          { rank: 9, finish_time: 1245254, score: 12 },
-        ],
-      };
+      let expected: Contestant[] = [];
+      for (const key in contest.mockResponse) {
+        expected = [...expected, ...contest.mockResponse[key].total_rank];
+      }
 
       server = setupServer(
         rest.get(contest.url.toString(), (req, res, ctx) => {
-          return res(ctx.json(mockHttpRes));
+          return res(
+            ctx.json(
+              contest.mockResponse[
+                contest.url.searchParams.get('pagination')
+                  ? contest.url.searchParams.get('pagination')
+                  : 1
+              ],
+            ),
+          );
         }),
       );
       server.listen();
+      server.events.on('response:mocked', async (res, reqId) => {
+        //console.log('sent a mocked response', reqId, res);
+      });
 
       const service = module.get(TasksService);
       const result = await service.scrapeContestData(contest);
-      expect(result).toEqual(mockHttpRes.total_rank);
+      expect(result).toEqual(expected);
     });
-    test.todo('contest of n entries, returned entries match given entries');
   });
 });

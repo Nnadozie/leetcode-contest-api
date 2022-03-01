@@ -13,12 +13,12 @@ export interface Contestant {
 export interface Contest {
   url: URL;
   contestNumber: number;
-  lastPage: number;
+  lastPage?: number;
   /**
    * Number of contestants.
    * Gotten as lastPage x 25.
    */
-  totalContestants: number;
+  totalContestants?: number;
 }
 
 export interface Response {
@@ -67,6 +67,8 @@ export class TasksService {
      *
      * The default node stack size is 984kb so for a typical
      * contest this should be fine. If not, needs refactoring.
+     *
+     * Or increase stack space...
      */
     if (contest.lastPage === 0) return [];
     contest.url.searchParams.set('pagination', contest.lastPage.toString());
@@ -77,7 +79,7 @@ export class TasksService {
 
     contest.lastPage--;
 
-    return res.data.total_rank.concat(await this.scrapeContestData(contest));
+    return [...(await this.scrapeContestData(contest)), ...res.data.total_rank];
   }
 
   /**
