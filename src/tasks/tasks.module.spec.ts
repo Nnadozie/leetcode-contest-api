@@ -292,6 +292,9 @@ describe('TasksService', () => {
       server.close();
     });
     interface MockContest extends Contest {
+      totalContestants: number;
+      contestNumber: number;
+      lastPage: number;
       mockResponse?: { [key: number]: Response };
     }
 

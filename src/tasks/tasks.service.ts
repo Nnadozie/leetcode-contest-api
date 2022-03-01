@@ -12,13 +12,7 @@ export interface Contestant {
 
 export interface Contest {
   url: URL;
-  contestNumber: number;
-  lastPage?: number;
-  /**
-   * Number of contestants.
-   * Gotten as lastPage x 25.
-   */
-  totalContestants?: number;
+  lastPage: number;
 }
 
 export interface Response {
@@ -56,8 +50,8 @@ export class TasksService {
   }
 
   /**
-   * Scrape all useful entries from a Leetcode contest
-   * and return an array of entries
+   * Scrapes all entries from a Leetcode contest url,
+   * stopping at the last page provided.
    **/
   async scrapeContestData(contest: Contest): Promise<Contestant[]> {
     /**
