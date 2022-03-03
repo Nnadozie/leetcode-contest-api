@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { DataService } from './data.service';
 import { Cron } from '@nestjs/schedule';
 import { HttpService } from '@nestjs/axios';
@@ -64,16 +64,34 @@ export class TasksService {
      *
      * Or increase stack space...
      */
-    if (contest.lastPage === 0) return [];
-    contest.url.searchParams.set('pagination', contest.lastPage.toString());
+    try {
+      if (contest.lastPage === 0) return [];
+      contest.url.searchParams.set('pagination', contest.lastPage.toString());
 
-    const res = await firstValueFrom(
-      this.httpService.get<Response>(contest.url.toString()),
-    );
+      const res = await firstValueFrom(
+        this.httpService.get<Response>(contest.url.toString()),
+      );
 
-    contest.lastPage--;
+      contest.lastPage--;
 
-    return [...(await this.scrapeContestData(contest)), ...res.data.total_rank];
+      return [
+        ...(await this.scrapeContestData(contest)),
+        ...res.data.total_rank,
+      ];
+    } catch (error) {
+      this.logger.log(error);
+      if (error.response.status === 404) {
+        throw new HttpException(
+          {
+            status: HttpStatus.NOT_FOUND,
+            error: 'contest not found',
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      } else {
+        throw new Error(error);
+      }
+    }
   }
 
   /**
