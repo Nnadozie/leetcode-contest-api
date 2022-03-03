@@ -1,1 +1,13 @@
-[About this project](https://dozie.dev/building-a-leetcode-contest-percentile-analyser-part-ii#heading-second-session-pulling-in-a-cron-module)
+# Leetcode Contest APIs
+
+APIs to empower front-end developers to build richer interfaces on top of Leetcode's contest data.
+
+Want a specific API capability? Open an issue on the repo.
+
+Like this project? Show your support by adding a star to the Github repo. It'll keep me going 😊!!
+
+[Read more about the motivation for this here](https://dozie.dev/building-a-leetcode-contest-percentile-analyser-1)
+
+## Documentation
+
+[Use this Readme documentation to try it out live](https://leetcode-contest-api.readme.io/)
