@@ -8,6 +8,25 @@ import { INestApplication } from '@nestjs/common';
 import { rest } from 'msw';
 import { setupServer, SetupServerApi } from 'msw/node';
 
+export function mockResGenerator(len: number): { [key: number]: Response } {
+  return new Array(len)
+    .fill(0)
+    .map((val, index) => index + 1)
+    .reduce(
+      (page, curr) => (
+        (page[curr] = {
+          total_rank: new Array<Contestant>(25).fill({
+            rank: curr,
+            finish_time: curr,
+            score: curr,
+          }),
+        }),
+        page
+      ),
+      {},
+    );
+}
+
 describe('TasksService', () => {
   let app: INestApplication;
 
@@ -298,25 +317,6 @@ describe('TasksService', () => {
       mockResponse?: { [key: number]: Response };
     }
 
-    function mockResGenerator(len: number): { [key: number]: Response } {
-      return new Array(len)
-        .fill(0)
-        .map((val, index) => index + 1)
-        .reduce(
-          (page, curr) => (
-            (page[curr] = {
-              total_rank: new Array<Contestant>(25).fill({
-                rank: curr,
-                finish_time: curr,
-                score: curr,
-              }),
-            }),
-            page
-          ),
-          {},
-        );
-    }
-
     const contests: MockContest[] = [
       {
         url: new URL(
@@ -378,9 +378,7 @@ describe('TasksService', () => {
             );
           }),
         );
-        server.events.on('response:mocked', async (res, reqId) => {
-          //console.log('sent a mocked response', reqId, res);
-        });
+
         server.listen();
 
         const result = await service.scrapeContestData(contest);
@@ -410,9 +408,6 @@ describe('TasksService', () => {
           }),
         );
       server.listen();
-      server.events.on('response:mocked', async (res, reqId) => {
-        //console.log('sent a mocked response', reqId, res);
-      });
 
       const service = module.get(TasksService);
 
@@ -450,13 +445,31 @@ describe('TasksService', () => {
         }),
       );
       server.listen();
-      server.events.on('response:mocked', async (res, reqId) => {
-        //console.log('sent a mocked response', reqId, res);
-      });
 
       const service = module.get(TasksService);
       const result = await service.scrapeContestData(contest);
       expect(result).toEqual(expected);
+    });
+
+    test.skip('404 Not Found, returns []', async () => {
+      const contest: MockContest = {
+        url: new URL('https://contest.com'),
+        totalContestants: 0,
+        contestNumber: 0,
+        lastPage: 1,
+        mockResponse: {},
+      };
+
+      server = setupServer(
+        rest.get(contest.url.toString(), (req, res, ctx) => {
+          return res(ctx.status(404), ctx.json(contest.mockResponse));
+        }),
+      );
+      server.listen();
+
+      const service = module.get(TasksService);
+      const result = await service.scrapeContestData(contest);
+      expect(result).toEqual([]);
     });
   });
 });
