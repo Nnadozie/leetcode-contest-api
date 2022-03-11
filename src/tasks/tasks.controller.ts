@@ -7,15 +7,27 @@ enum ContestType {
   biweekly = 'biweekly',
 }
 
-export class ContestParamDto {
+class Contest {
   @IsEnum(ContestType)
   contest_type: ContestType;
 
   @IsNumberString()
   contest_number: number;
-
+}
+export class ContestParamDto extends Contest {
   @IsNumberString()
   last_page: number;
+}
+
+export interface FinishTime {
+  hours: 0 | 1;
+  minutes: number;
+  seconds: number;
+}
+
+export class PercentileParamDto extends Contest {
+  @IsNumberString()
+  desired_percentile: number;
 }
 
 @Controller('contest')
@@ -35,5 +47,13 @@ export class TasksController {
       ),
       lastPage: params.last_page,
     });
+  }
+
+  @Get('/:contest_type/:contest_number/:desired_percentile/finish-time') //How to let typescript know this path?
+  async finishTimeFromPercentile(
+    @Param(new ValidationPipe()) params: PercentileParamDto,
+  ): Promise<FinishTime> {
+    this.logger.log('processing request', JSON.stringify(params));
+    return;
   }
 }
