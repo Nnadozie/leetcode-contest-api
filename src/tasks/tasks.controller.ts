@@ -54,6 +54,13 @@ export class TasksController {
     @Param(new ValidationPipe()) params: PercentileParamDto,
   ): Promise<FinishTime> {
     this.logger.log('processing request', JSON.stringify(params));
+    // This needs to go to the contest
+    // Know the last ranked contestant --> can be O(1) if last rank data is stored per contest
+    // Calculate the rank of contestant in percentile given (100 - percentile)/100 * last rank --> O(1)
+    // retrieve the contestant object with that rank (reduced to integer) --> can be O(1) if entire contest is in memory and indexed by rank, at worst, O(logn) for sorted non-indexed contest array.
+    // return the finish time of that contestant in the required format
+
+    // Main question is HOW TO HAVE THE CONTEST READY TO READ IN O(1) time? A DB? A CACHE?
     return;
   }
 }
