@@ -86,9 +86,9 @@ describe('TasksController', () => {
           return {
             statusCode: 400,
             message: [
+              'last_page must be a number string',
               'contest_type must be a valid enum value',
               'contest_number must be a number string',
-              'last_page must be a number string',
             ],
             error: 'Bad Request',
           };
@@ -147,5 +147,49 @@ describe('TasksController', () => {
         .expect(404)
         .expect(mock.controllerRes);
     });
+  });
+
+  describe('/GET /:contest_type/:contest_number/:desired_percentile/finish-time', () => {
+    test.todo('percentile outside range, returns bad request');
+    test.todo('valid percentile, returns 200 ok response');
+    test.todo(
+      '10 contestants, 90th percentile, returns time of rank 1 contestant',
+    );
+    test.todo(
+      '100 contestants, 90th percentile, returns time of rank 10 contestant',
+    );
+    test.todo(
+      '200 contestants, 90th percentile, returns time of rank 20 contestant',
+    );
+    test.todo(
+      '201 contestants, 90th percentile, returns time of rank 20 contestant',
+    );
+    test.todo(
+      '202 contestants, 90th percentile, returns time of rank 20 contestant',
+    );
+    test.todo(
+      '203 contestants, 90th percentile, returns time of rank 20 contestant',
+    );
+    test.todo(
+      '204 contestants, 90th percentile, returns time of rank 20 contestant',
+    );
+    test.todo(
+      '205 contestants, 90th percentile, returns time of rank 20 contestant',
+    );
+    test.todo(
+      '206 contestants, 90th percentile, returns time of rank 20 contestant',
+    );
+    test.todo(
+      '207 contestants, 90th percentile, returns time of rank 20 contestant',
+    );
+    test.todo(
+      '208 contestants, 90th percentile, returns time of rank 20 contestant',
+    );
+    test.todo(
+      '209 contestants, 90th percentile, returns time of rank 20 contestant',
+    );
+    test.todo(
+      '210 contestants, 90th percentile, returns time of rank 21 contestant',
+    );
   });
 });
