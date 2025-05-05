@@ -1,0 +1,116 @@
+name: Omnipay Sandbox GP Deploy
+
+on:
+    push:
+        branches:
+            - main
+    workflow_dispatch:
+        inputs:
+            environment_selection:
+                description: "Select environment or choose 'custom'"
+                required: true
+                default: "omnipay-gp"
+                type: choice
+                options:
+                    - omnipay-gp
+                    - custom
+            custom_environment:
+                description: "If 'custom' selected above, enter environment name"
+                required: false
+                type: string
+
+concurrency:
+    group: ${{ github.ref }}-omnipay-gp
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            id-token: write
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "20.15.0"
+
+            - name: Configure AWS credentials
+              uses: aws-actions/configure-aws-credentials@v4
+              with:
+                  role-to-assume: arn:aws:iam::637749878978:role/GlobalPayments-InitialAccountSetup-GitHub-Actions-Role
+                  aws-region: us-west-2
+
+            - name: Setup Private Packages Tokens
+              run: |
+                  echo "//npm.pkg.github.com/:_authToken=${PACKAGES_TOKEN}" >> ~/.npmrc
+                  echo "//npm.fontawesome.com/:_authToken=${FONT_AWESOME_TOKEN}" >> ~/.npmrc
+              env:
+                  PACKAGES_TOKEN: ${{ secrets.NPM_GITHUB_PACKAGE_TOKEN }}
+                  FONT_AWESOME_TOKEN: ${{ secrets.FONT_AWESOME_TOKEN }}
+
+            - name: Cache & Restore Root Dependencies
+              id: root-cache
+              uses: actions/cache@v4
+              with:
+                  path: node_modules
+                  key: root-${{ hashFiles('yarn.lock') }}
+
+            - name: Root Install
+              if: steps.root-cache.outputs.cache-hit != 'true'
+              run: yarn --prefer-offline
+
+            - name: CDK & Serverless Install
+              uses: ./.github/actions/backend
+
+            - name: Deploy to specified environment
+              run: cd cdk && yarn deploy ${{ github.event.inputs.environment_selection == 'custom' && github.event.inputs.custom_environment || github.event.inputs.environment_selection || 'omnipay-gp' }} OmniPaySandbox
+
+            - name: Cleanup Private Packages Tokens
+              run: rm ~/.npmrc
+
+            - name: Notify Slack that Deployment Succeeded
+              if: ${{ success() }}
+              id: slackSuccess
+              uses: slackapi/slack-github-action@v1.27.1
+              with:
+                  # For posting a rich message using Block Kit
+                  payload: |
+                      {
+                        "blocks": [
+                          {
+                            "type": "section",
+                            "text": {
+                              "type": "mrkdwn",
+                              "text": "✅🏴‍☠️ ${{ github.event.inputs.environment_selection == 'custom' && github.event.inputs.custom_environment || github.event.inputs.environment_selection || 'OmniPay GP' }} deploy ${{ job.status }}\n${{ github.event.pull_request.html_url || github.event.head_commit.url }}"
+                            }
+                          }
+                        ]
+                      }
+              env:
+                  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+                  SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+            - name: Notify Slack that Deployment Failed
+              if: ${{ failure() }}
+              id: slackFailure
+              uses: slackapi/slack-github-action@v1.27.1
+              with:
+                  # For posting a rich message using Block Kit
+                  payload: |
+                      {
+                        "blocks": [
+                          {
+                            "type": "section",
+                            "text": {
+                              "type": "mrkdwn",
+                              "text": "❌❌❌ ${{ github.event.inputs.environment_selection == 'custom' && github.event.inputs.custom_environment || github.event.inputs.environment_selection || 'OmniPay GP' }} deploy ${{ job.status }}\n${{ github.event.pull_request.html_url || github.event.head_commit.url }} 🏴‍☠️"
+                            }
+                          }
+                        ]
+                      }
+              env:
+                  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+                  SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
